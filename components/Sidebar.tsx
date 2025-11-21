@@ -111,7 +111,7 @@ const transformNodeData = (): NodeItem[] => {
 
   // Add trigger options as separate nodes
   const triggerOptions = [
-    { name: 'User submission', keywords: ['user', 'submission', 'input', 'form', 'trigger'] },
+    { name: 'User input', keywords: ['user', 'submission', 'input', 'form', 'trigger'] },
     { name: 'App Trigger', keywords: ['app', 'trigger', 'integration', 'webhook', 'api'] },
     { name: 'Run on Click', keywords: ['click', 'run', 'manual', 'trigger', 'execute'] },
     { name: 'Scheduled trigger', keywords: ['scheduled', 'schedule', 'timer', 'cron', 'trigger'] }

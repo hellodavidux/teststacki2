@@ -1,6 +1,6 @@
 'use client'
 
-import { Zap, MoreVertical, Plus, Clock, Pencil, FileText, Mic, Trash2, Play } from 'lucide-react'
+import { Zap, MoreVertical, Plus, Clock, Pencil, FileText, Mic, Trash2, Play, ExternalLink } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 interface TriggerNodeProps {
@@ -44,7 +44,7 @@ const getTriggerIcon = (name: string) => {
   
   // App triggers - use the app icon placeholder
   // Check if it's a known app name (not one of the main trigger options)
-  const mainTriggerOptions = ['Trigger', 'User submission', 'App Trigger', 'Run on Click', 'Scheduled trigger']
+  const mainTriggerOptions = ['Trigger', 'User input', 'App Trigger', 'Run on Click', 'Scheduled trigger']
   if (name && !mainTriggerOptions.includes(name)) {
     return (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-4 h-4">
@@ -202,12 +202,27 @@ export default function TriggerNode({ id = 'trigger-node', name = 'Trigger', onH
           </div>
         </div>
 
-        {/* Placeholder Content */}
-        <div className="mt-4">
-          <div className="w-full min-h-[60px] p-3 bg-gray-50 border border-dashed border-gray-300 rounded-lg flex items-center justify-center">
-            <span className="text-sm text-gray-400">Configure trigger</span>
+        {/* Placeholder Content - only show when trigger hasn't been specifically selected */}
+        {(name === 'Trigger' || name === 'App Trigger' || name === 'User input') && (
+          <div className="mt-4">
+            <div className="w-full min-h-[60px] p-3 bg-gray-50 border border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+              <span className="text-sm text-gray-400">Configure trigger</span>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Text Input Field - shown for "Text Input" and "Input" */}
+        {(name === 'Text Input' || name === 'Input') && (
+          <div className="mt-4">
+            <input
+              type="text"
+              placeholder="Enter text..."
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
 
         {/* Design Interface Button - shown for "Text Input", "Input", "Files", and "Audio" */}
         {(name === 'Text Input' || name === 'Input' || name === 'Files' || name === 'Audio') && (
@@ -217,10 +232,11 @@ export default function TriggerNode({ id = 'trigger-node', name = 'Trigger', onH
               // TODO: Handle design interface action
               console.log('Design interface clicked')
             }}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-sm font-medium rounded-lg shadow-sm transition-colors"
+            className="mt-3 w-full flex items-center justify-start gap-2 px-0 py-0 text-gray-700 text-sm font-normal transition-colors"
             type="button"
           >
             Design interface
+            <ExternalLink className="size-3.5 text-gray-500" />
           </button>
         )}
       </div>

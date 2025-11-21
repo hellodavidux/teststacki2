@@ -67,7 +67,7 @@ const isTriggerOption = (name: string): boolean => {
   const triggerOptions = [
     'Text Input', 'Files', 'Audio',
     'Run on Click', 'Scheduled trigger',
-    'User submission', 'App Trigger'
+    'User input', 'App Trigger'
   ]
   // Also check if it's an app name (not in the main trigger options)
   if (triggerOptions.includes(name)) return true
@@ -118,7 +118,7 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
 
   // Auto-set trigger view when node name changes
   useEffect(() => {
-    if (nodeName === 'User submission' && triggerView !== 'user-submission') {
+    if (nodeName === 'User input' && triggerView !== 'user-submission') {
       setTriggerView('user-submission')
     } else if (nodeName === 'App Trigger' && triggerView !== 'app-trigger') {
       setTriggerView('app-trigger')
@@ -305,9 +305,9 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
 
   // Handle trigger option selection
   const handleTriggerOptionClick = (option: string) => {
-    if (option === 'User submission') {
+    if (option === 'User input') {
       if (onUpdateNodeName) {
-        onUpdateNodeName(nodeId, 'User submission')
+        onUpdateNodeName(nodeId, 'User input')
       }
       setTriggerView('user-submission')
     } else if (option === 'App Trigger') {
@@ -353,7 +353,7 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
   // Get all available trigger options for dropdown - only the 4 main options
   const getAllTriggerOptions = (): Array<{ name: string; category: string }> => {
     return [
-      { name: 'User submission', category: 'User Input' },
+      { name: 'User input', category: 'User Input' },
       { name: 'App Trigger', category: 'Integration' },
       { name: 'Run on Click', category: 'Manual' },
       { name: 'Scheduled trigger', category: 'Schedule' }
@@ -379,10 +379,10 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
 
   // Handle trigger change from dropdown
   const handleTriggerChange = (newTriggerName: string) => {
-    if (newTriggerName === 'User submission') {
-      // Update node name to "User submission" and show submenu
+    if (newTriggerName === 'User input') {
+      // Update node name to "User input" and show submenu
       if (onUpdateNodeName) {
-        onUpdateNodeName(nodeId, 'User submission')
+        onUpdateNodeName(nodeId, 'User input')
       }
       setTriggerView('user-submission')
       setShowTriggerDropdown(false)
@@ -431,10 +431,7 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
         { label: 'Validate URL format', type: 'checkbox', value: true }
       ]
     } else if (nodeName === 'Run on Click') {
-      return [
-        { label: 'Button label', type: 'text', value: 'Run workflow', placeholder: 'Button text' },
-        { label: 'Show confirmation', type: 'checkbox', value: true }
-      ]
+      return []
     } else if (nodeName === 'Scheduled trigger') {
       return [
         { label: 'Schedule type', type: 'select', value: 'daily', options: ['daily', 'weekly', 'monthly', 'custom'] },
@@ -509,7 +506,7 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
                           key={index}
                           onClick={() => handleTriggerChange(option.name)}
                           className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${
-                            option.name === 'User submission' ? 'bg-gray-100 text-gray-900' : 'text-gray-900'
+                            option.name === 'User input' ? 'bg-gray-100 text-gray-900' : 'text-gray-900'
                           } ${index === 0 ? 'rounded-t-lg' : ''} ${index === getAllTriggerOptions().length - 1 ? 'rounded-b-lg' : ''}`}
                           type="button"
                         >
@@ -579,7 +576,7 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
                 </div>
               ) : (
                 <h2 className="font-semibold text-gray-900 text-sm">
-                  {triggerView === 'user-submission' ? 'User submission' : 
+                  {triggerView === 'user-submission' ? 'User input' : 
                    triggerView === 'app-trigger' ? 'App Trigger' : 
                    nodeName}
                 </h2>
@@ -649,7 +646,7 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
             </button>
           )}
 
-          {/* User submission dropdown - shown when a user submission option is selected */}
+          {/* User input dropdown - shown when a user submission option is selected */}
           {isUserSubmissionOption && (
             <div ref={userSubmissionButtonRef} className="relative mb-4">
               <button
@@ -773,7 +770,7 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
           {nodeName === 'Trigger' && triggerView === 'main' && (
             <div className="space-y-1">
               <button
-                onClick={() => handleTriggerOptionClick('User submission')}
+                onClick={() => handleTriggerOptionClick('User input')}
                 className="w-full flex items-start gap-3 px-3 py-3 hover:bg-gray-50 transition-colors text-left rounded-md group"
               >
                 <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
@@ -782,7 +779,7 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-gray-900 font-medium">User submission</div>
+                  <div className="text-sm text-gray-900 font-medium">User input</div>
                   <div className="text-xs text-gray-500 mt-0.5">
                     Used in interfaces like chatbot, form, etc
                   </div>
@@ -844,8 +841,8 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
             </div>
           )}
 
-          {/* User submission submenu */}
-          {(nodeName === 'Trigger' || nodeName === 'User submission') && triggerView === 'user-submission' && (
+          {/* User input submenu */}
+          {(nodeName === 'Trigger' || nodeName === 'User input') && triggerView === 'user-submission' && (
             <div className="space-y-1">
               <button
                 onClick={() => handleUserSubmissionClick('text input')}

@@ -235,7 +235,7 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
     
     // Determine node type based on name
     const isTrigger = nodeName === 'Trigger' || 
-                     nodeName === 'User submission' || 
+                     nodeName === 'User input' || 
                      nodeName === 'App Trigger' || 
                      nodeName === 'Run on Click' || 
                      nodeName === 'Scheduled trigger'
