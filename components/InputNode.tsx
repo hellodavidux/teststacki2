@@ -1,22 +1,25 @@
 'use client'
 
-import { Pencil, MoreVertical, Plus } from 'lucide-react'
+import { Pencil, MoreVertical, Plus, Trash2 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 interface InputNodeProps {
   id?: string
   onHandleDragStart?: (position: { x: number; y: number }) => void
+  onDelete?: (id: string) => void
 }
 
-export default function InputNode({ id = 'input-node', onHandleDragStart }: InputNodeProps) {
+export default function InputNode({ id = 'input-node', onHandleDragStart, onDelete }: InputNodeProps) {
   const [inputValue, setInputValue] = useState('')
   const [isHovered, setIsHovered] = useState(false)
   const [isAddHovered, setIsAddHovered] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [showMenu, setShowMenu] = useState(false)
   const nodeRef = useRef<HTMLDivElement>(null)
   const addButtonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const handleNodeMouseDown = (e: React.MouseEvent) => {
     // Don't start dragging if clicking on interactive elements
@@ -64,6 +67,28 @@ export default function InputNode({ id = 'input-node', onHandleDragStart }: Inpu
     }
   }, [isDragging, dragStart])
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showMenu) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node) && 
+          nodeRef.current && !nodeRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showMenu])
+
+  const handleDelete = () => {
+    if (onDelete && id) {
+      onDelete(id)
+      setShowMenu(false)
+    }
+  }
+
   return (
     <div 
       ref={nodeRef}
@@ -87,9 +112,33 @@ export default function InputNode({ id = 'input-node', onHandleDragStart }: Inpu
           <div className="flex-1">
             <h3 className="font-semibold text-gray-900">Input</h3>
           </div>
-          <button className="text-gray-400 hover:text-gray-600 transition-colors p-1">
-            <MoreVertical className="size-4" />
-          </button>
+          <div className="relative" ref={menuRef}>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowMenu(!showMenu)
+              }}
+              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+              type="button"
+            >
+              <MoreVertical className="size-4" />
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[120px]">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDelete()
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors text-left rounded-lg"
+                  type="button"
+                >
+                  <Trash2 className="size-4" />
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Textarea */}

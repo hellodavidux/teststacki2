@@ -1,10 +1,10 @@
 {
   "Inputs": [
-    { "name": "Input", "keywords": ["input", "user", "trigger", "start", "begin"] },
+    { "name": "Input", "keywords": ["input","text input", "userinput",  "user", "trigger", "start", "begin"] },
     { "name": "Files", "keywords": ["file", "upload", "document", "trigger, input"] },
     { 
       "name": "Trigger", 
-      "keywords": ["app", "trigger", "webhook", "api", "start, input"],
+      "keywords": ["app", "trigger", "webhook", "api", "start, input", "app trigger"],
       "subactions": [
         { "name": "Airtable" },
         { "name": "Google Drive" },

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react'
 import InputNode from './InputNode'
+import TriggerNode from './TriggerNode'
 import PlaceholderNode from './PlaceholderNode'
 import NodeSelector from './NodeSelector'
 import ConfigurationPanel from './ConfigurationPanel'
@@ -10,7 +11,7 @@ interface Node {
   id: string
   name: string
   position: { x: number; y: number }
-  type: 'input' | 'placeholder'
+  type: 'input' | 'trigger' | 'placeholder'
 }
 
 interface Connection {
@@ -29,7 +30,7 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
   const [isPanning, setIsPanning] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [nodes, setNodes] = useState<Node[]>([
-    { id: 'input-node', name: 'Input', position: { x: 0, y: 0 }, type: 'input' }
+    { id: 'trigger-node', name: 'Trigger', position: { x: 0, y: 0 }, type: 'trigger' }
   ])
   const [connections, setConnections] = useState<Connection[]>([])
   const [pendingConnection, setPendingConnection] = useState<{ nodeId: string; side: 'left' | 'right' } | null>(null)
@@ -45,8 +46,8 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
     const newPositions: Record<string, { left?: { x: number; y: number }; right?: { x: number; y: number } }> = {}
     
     nodes.forEach(node => {
-      if (node.type === 'input') {
-        // Find input node's right handle
+      if (node.type === 'input' || node.type === 'trigger') {
+        // Find input/trigger node's right handle
         const inputNode = nodeContainerRef.current?.querySelector(`[data-node-id="${node.id}"]`)
         const rightHandle = inputNode?.querySelector('button[data-handle="right"]') as HTMLElement
         if (rightHandle) {
@@ -146,8 +147,8 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
         minY = Math.min(minY, node.position.y)
         maxX = Math.max(maxX, node.position.x + 320) // Node width is ~320px
         maxY = Math.max(maxY, node.position.y + 200) // Approximate node height
-      } else if (node.type === 'input') {
-        // Input node - try to get position from DOM, otherwise use stored position
+      } else if (node.type === 'input' || node.type === 'trigger') {
+        // Input/Trigger node - try to get position from DOM, otherwise use stored position
         if (nodeContainerRef.current) {
           const inputNodeElement = nodeContainerRef.current.querySelector(`[data-node-id="${node.id}"]`)
           if (inputNodeElement) {
@@ -209,12 +210,12 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
     return Math.max(4000, canvasBounds.maxY - canvasBounds.minY)
   }, [canvasBounds])
 
-  // Center the input node on initial load
+  // Center the trigger node on initial load
   useEffect(() => {
     // Use double requestAnimationFrame to ensure all transforms and layout are complete
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        centerNodeInViewport('input-node')
+        centerNodeInViewport('trigger-node')
       })
     })
   }, [centerNodeInViewport])
@@ -230,9 +231,9 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
     } else {
       // Find the rightmost node to position new node to its right
       const placeholderNodes = nodes.filter(n => n.type === 'placeholder')
-      const inputNode = nodes.find(n => n.type === 'input')
+      const triggerOrInputNode = nodes.find(n => n.type === 'input' || n.type === 'trigger')
       
-      if (placeholderNodes.length > 0 || inputNode) {
+      if (placeholderNodes.length > 0 || triggerOrInputNode) {
         // Get the rightmost node position
         let rightmostX = -Infinity
         let rightmostY = 0
@@ -245,11 +246,12 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
           }
         })
         
-        // Check input node (it has its own position state, so we need to get it from DOM)
-        if (inputNode && nodeContainerRef.current) {
-          const inputNodeElement = nodeContainerRef.current.querySelector(`[data-node-id="${inputNode.id}"]`)
-          if (inputNodeElement) {
-            const computedStyle = window.getComputedStyle(inputNodeElement)
+        // Check input/trigger node (it has its own position state, so we need to get it from DOM)
+        const triggerOrInputNode = nodes.find(n => n.type === 'input' || n.type === 'trigger')
+        if (triggerOrInputNode && nodeContainerRef.current) {
+          const triggerNodeElement = nodeContainerRef.current.querySelector(`[data-node-id="${triggerOrInputNode.id}"]`)
+          if (triggerNodeElement) {
+            const computedStyle = window.getComputedStyle(triggerNodeElement)
             const transform = computedStyle.transform
             if (transform && transform !== 'none') {
               const matrix = new DOMMatrix(transform)
@@ -319,7 +321,7 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
 
     const handleWheel = (e: WheelEvent) => {
       // Only handle wheel events within the canvas
-      if (!e.target) return
+      if (!e.target || !(e.target instanceof Element)) return
       const target = e.target as HTMLElement
       if (!canvas.contains(target)) return
       
@@ -594,6 +596,35 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
                       setDraggingConnection({ nodeId: node.id, side: 'right', startPos: position })
                       setDragMousePos(position)
                     }}
+                    onDelete={(id) => {
+                      setNodes(prev => prev.filter(n => n.id !== id))
+                      setConnections(prev => prev.filter(c => c.from.nodeId !== id && c.to.nodeId !== id))
+                      if (selectedNodeId === id) {
+                        setSelectedNodeId(null)
+                      }
+                    }}
+                  />
+                )
+              } else if (node.type === 'trigger') {
+                return (
+                  <TriggerNode
+                    key={node.id}
+                    id={node.id}
+                    name={node.name}
+                    onHandleDragStart={(position) => {
+                      setDraggingConnection({ nodeId: node.id, side: 'right', startPos: position })
+                      setDragMousePos(position)
+                    }}
+                    onSelect={(id) => {
+                      setSelectedNodeId(id)
+                    }}
+                    onDelete={(id) => {
+                      setNodes(prev => prev.filter(n => n.id !== id))
+                      setConnections(prev => prev.filter(c => c.from.nodeId !== id && c.to.nodeId !== id))
+                      if (selectedNodeId === id) {
+                        setSelectedNodeId(null)
+                      }
+                    }}
                   />
                 )
               } else {
@@ -616,6 +647,13 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
                     }}
                     onSelect={(id) => {
                       setSelectedNodeId(id)
+                    }}
+                    onDelete={(id) => {
+                      setNodes(prev => prev.filter(n => n.id !== id))
+                      setConnections(prev => prev.filter(c => c.from.nodeId !== id && c.to.nodeId !== id))
+                      if (selectedNodeId === id) {
+                        setSelectedNodeId(null)
+                      }
                     }}
                   />
                 )
@@ -721,6 +759,9 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
               nodeName={selectedNode.name}
               nodeId={selectedNode.id}
               onClose={() => setSelectedNodeId(null)}
+              onUpdateNodeName={(nodeId, newName) => {
+                setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, name: newName } : n))
+              }}
             />
           )
         }
@@ -744,8 +785,8 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
             let sourcePosition = sourceNode?.position || { x: 300, y: 0 }
             
             // If source node exists, try to get its actual visual position from the DOM
-            // This is important because InputNode has its own position state that may differ from Canvas state
-            if (sourceNode && nodeContainerRef.current && scrollContainerRef.current) {
+            // This is important because InputNode/TriggerNode has its own position state that may differ from Canvas state
+            if (sourceNode && (sourceNode.type === 'input' || sourceNode.type === 'trigger') && nodeContainerRef.current && scrollContainerRef.current) {
               const sourceNodeElement = nodeContainerRef.current.querySelector(`[data-node-id="${sourceNode.id}"]`)
               if (sourceNodeElement) {
                 // Get the computed transform to extract the actual translate values
@@ -803,6 +844,9 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
                 setSelectedNodeId(newNodeId)
               })
             })
+          } else {
+            // No pending connection - just add the node and open config panel
+            addNodeToCanvas(nodeName)
           }
           setNodeSelectorOpen(false)
         }}

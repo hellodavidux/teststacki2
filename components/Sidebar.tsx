@@ -83,19 +83,49 @@ const transformNodeData = (): NodeItem[] => {
   const items: NodeItem[] = []
   const data = nodesData as NodesData
 
-  // Inputs category
+  // Inputs category - only include Trigger by default, but include all inputs in search
   if (Array.isArray(data.Inputs)) {
     data.Inputs.forEach((item: NodeDataValue) => {
       const { name, keywords } = extractNodeInfo(item)
-      items.push({
-        id: generateId(name, 'input'),
-        name,
-        category: 'Flow',
-        jsonCategory: 'Inputs',
-        keywords
-      })
+      if (name === 'Trigger') {
+        items.push({
+          id: generateId(name, 'trigger'),
+          name,
+          category: 'Flow',
+          jsonCategory: 'Triggers',
+          keywords
+        })
+      } else {
+        // Include other input nodes but mark them as subactions so they only show in search
+        items.push({
+          id: generateId(name, 'input'),
+          name,
+          category: 'Flow',
+          jsonCategory: 'Inputs',
+          keywords,
+          isSubaction: true // Only show in search, not in default view
+        })
+      }
     })
   }
+
+  // Add trigger options as separate nodes
+  const triggerOptions = [
+    { name: 'User submission', keywords: ['user', 'submission', 'input', 'form', 'trigger'] },
+    { name: 'App Trigger', keywords: ['app', 'trigger', 'integration', 'webhook', 'api'] },
+    { name: 'Run on Click', keywords: ['click', 'run', 'manual', 'trigger', 'execute'] },
+    { name: 'Scheduled trigger', keywords: ['scheduled', 'schedule', 'timer', 'cron', 'trigger'] }
+  ]
+  
+  triggerOptions.forEach(option => {
+    items.push({
+      id: generateId(option.name, 'trigger-option'),
+      name: option.name,
+      category: 'Flow',
+      jsonCategory: 'Triggers',
+      keywords: option.keywords
+    })
+  })
 
   // Triggers category
   if (Array.isArray(data.Triggers)) {
@@ -156,19 +186,31 @@ const transformNodeData = (): NodeItem[] => {
     })
   }
 
-  // Popular category
+  // Popular category - add Trigger at the top first
+  items.push({
+    id: generateId('Trigger', 'popular-trigger'),
+    name: 'Trigger',
+    category: 'Popular',
+    jsonCategory: 'Triggers',
+    keywords: ['trigger', 'app', 'webhook', 'api', 'start']
+  })
+
+  // Popular category - filter out Inputs and Trigger (Trigger already added above)
   if (Array.isArray(data.Popular)) {
     data.Popular.forEach((item: NodeDataValue) => {
       const { name, keywords } = extractNodeInfo(item)
-      // Skip if a node with the same name and category already exists
-      const exists = items.some(item => item.name === name && item.category === 'Popular')
-      if (!exists) {
-        items.push({
-          id: generateId(name, 'popular'),
-          name,
-          category: 'Popular',
-          keywords
-        })
+      // Exclude "Inputs" and "Trigger" from Popular category (Trigger is already added above)
+      if (name !== 'Inputs' && name !== 'Trigger') {
+        // Skip if a node with the same name and category already exists
+        const exists = items.some(item => item.name === name && item.category === 'Popular')
+        if (!exists) {
+          items.push({
+            id: generateId(name, 'popular'),
+            name,
+            category: 'Popular',
+            keywords
+          })
+        }
       }
     })
   }
@@ -280,13 +322,9 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
     if (!submenu) return []
     const data = nodesData as NodesData
     
+    // Remove inputs submenu - no longer needed
     if (submenu === 'inputs') {
-      const inputs = data.Inputs || []
-      // Filter out Trigger
-      return inputs.filter((item: NodeDataValue) => {
-        const { name } = extractNodeInfo(item)
-        return name !== 'Trigger'
-      })
+      return []
     } else if (submenu === 'outputs') {
       const outputs = data.Outputs || []
       // Filter out Action
@@ -411,7 +449,8 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                         </div>
                       )}
                       {nodes.map((node) => {
-                        const isInputNode = node.name === 'Input' || node.name === 'Inputs'
+                        // Check if this is Outputs node (main category node that should show submenu)
+                        // Inputs submenu removed - only Trigger shows directly
                         const isOutputNode = node.name === 'Output' || node.name === 'Outputs'
                         
                         return (
@@ -435,13 +474,9 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                             setDraggedNode(null)
                           }}
                           onClick={() => {
-                            const isInputNode = node.name === 'Input' || node.name === 'Inputs'
                             const isOutputNode = node.name === 'Output' || node.name === 'Outputs'
                             
-                            if (isInputNode) {
-                              setSubmenu('inputs')
-                              setSearchValue('')
-                            } else if (isOutputNode) {
+                            if (isOutputNode) {
                               setSubmenu('outputs')
                               setSearchValue('')
                             } else {
@@ -452,9 +487,8 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                             }
                           }}
                           onMouseEnter={(e) => {
-                            const isInputNode = node.name === 'Input' || node.name === 'Inputs'
                             const isOutputNode = node.name === 'Output' || node.name === 'Outputs'
-                            if (!(isInputNode || isOutputNode)) {
+                            if (!isOutputNode) {
                               if (hoverTimeoutRef.current) {
                                 clearTimeout(hoverTimeoutRef.current)
                               }
@@ -487,8 +521,8 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                               <div className="content-stretch flex flex-col items-start justify-center relative shrink-0 flex-1 min-h-[22px]">
                                 <p className="font-['Inter:Medium',sans-serif] font-medium leading-[20px] not-italic relative shrink-0 text-[#1d1d1d] text-[13px] text-nowrap tracking-[-0.13px] whitespace-pre">{node.name}</p>
                               </div>
-                              {/* Show chevron for Input/Output (always visible), drag icon for others (on hover) */}
-                              {(isInputNode || isOutputNode) ? (
+                              {/* Show chevron for Output (always visible), drag icon for others (on hover) */}
+                              {isOutputNode ? (
                                 <ChevronRight className="text-gray-400 flex-shrink-0 size-4 ml-2" strokeWidth={1.5} />
                               ) : (
                                 <GripVertical className="text-gray-400 opacity-0 group-hover/node:opacity-100 transition-opacity flex-shrink-0 size-4 ml-2" />
@@ -661,7 +695,8 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                       </div>
                     )}
                     {nodes.map((node) => {
-                      const isInputNode = node.name === 'Input' || node.name === 'Inputs'
+                      // Check if this is Outputs node (main category node that should show submenu)
+                      // Inputs submenu removed - only Trigger shows directly
                       const isOutputNode = node.name === 'Output' || node.name === 'Outputs'
                       
                       return (
@@ -685,13 +720,9 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                           setDraggedNode(null)
                         }}
                         onClick={() => {
-                          const isInputNode = node.name === 'Input' || node.name === 'Inputs'
                           const isOutputNode = node.name === 'Output' || node.name === 'Outputs'
                           
-                          if (isInputNode) {
-                            setSubmenu('inputs')
-                            setSearchValue('')
-                          } else if (isOutputNode) {
+                          if (isOutputNode) {
                             setSubmenu('outputs')
                             setSearchValue('')
                           } else {
@@ -701,9 +732,8 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                           }
                         }}
                         onMouseEnter={(e) => {
-                          const isInputNode = node.name === 'Input' || node.name === 'Inputs'
                           const isOutputNode = node.name === 'Output' || node.name === 'Outputs'
-                          if (!(isInputNode || isOutputNode)) {
+                          if (!isOutputNode) {
                             if (hoverTimeoutRef.current) {
                               clearTimeout(hoverTimeoutRef.current)
                             }
@@ -736,8 +766,8 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                             <div className="content-stretch flex flex-col items-start justify-center relative shrink-0 flex-1 min-h-[22px]">
                               <p className={`font-['Inter:Medium',sans-serif] font-medium leading-[20px] not-italic relative shrink-0 text-[#1d1d1d] text-[13px] text-nowrap tracking-[-0.13px] whitespace-pre transition-opacity ${sidebarExpanded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>{node.name}</p>
                             </div>
-                            {/* Show chevron for Input/Output (always visible when sidebar is expanded/hovered), drag icon for others (on hover) */}
-                            {(isInputNode || isOutputNode) ? (
+                            {/* Show chevron for Output (always visible when sidebar is expanded/hovered), drag icon for others (on hover) */}
+                            {isOutputNode ? (
                               <ChevronRight className={`text-gray-400 flex-shrink-0 size-4 ${sidebarExpanded ? 'ml-2' : 'w-0 group-hover:w-4 group-hover:ml-2'}`} strokeWidth={1.5} />
                             ) : (
                               <GripVertical className={`text-gray-400 opacity-0 group-hover/node:opacity-100 transition-opacity flex-shrink-0 size-4 ${sidebarExpanded ? 'ml-2' : 'w-0 group-hover/node:w-4 group-hover/node:ml-2'}`} />
