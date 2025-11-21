@@ -30,7 +30,7 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
   const [isPanning, setIsPanning] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [nodes, setNodes] = useState<Node[]>([
-    { id: 'trigger-node', name: 'Trigger', position: { x: 0, y: 0 }, type: 'trigger' }
+    { id: 'trigger-node', name: 'Trigger', position: { x: 500, y: 400 }, type: 'trigger' }
   ])
   const [connections, setConnections] = useState<Connection[]>([])
   const [pendingConnection, setPendingConnection] = useState<{ nodeId: string; side: 'left' | 'right' } | null>(null)
@@ -102,11 +102,21 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
 
     // Find the node element by data-node-id
     const nodeElement = nodeContainer.querySelector(`[data-node-id="${nodeId}"]`)
-    if (!nodeElement) return
+    if (!nodeElement) {
+      // If not found, try again after a short delay (node might still be rendering)
+      setTimeout(() => centerNodeInViewport(nodeId), 100)
+      return
+    }
 
     // Get the bounding box of the node
     const nodeRect = nodeElement.getBoundingClientRect()
     const containerRect = scrollContainer.getBoundingClientRect()
+    
+    // If node has zero dimensions, it's not rendered yet
+    if (nodeRect.width === 0 || nodeRect.height === 0) {
+      setTimeout(() => centerNodeInViewport(nodeId), 100)
+      return
+    }
     
     // Calculate the node's position relative to the scroll container's content
     const nodeX = nodeRect.left - containerRect.left + scrollContainer.scrollLeft
@@ -118,7 +128,7 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
     const nodeWidth = nodeRect.width
     const nodeHeight = nodeRect.height
     
-    // Center the node in the viewport (with a slight offset to account for zoom)
+    // Center the node in the viewport
     const scrollX = nodeX + (nodeWidth / 2) - (containerWidth / 2)
     const scrollY = nodeY + (nodeHeight / 2) - (containerHeight / 2)
     
@@ -212,75 +222,102 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
 
   // Center the trigger node on initial load
   useEffect(() => {
-    // Use double requestAnimationFrame to ensure all transforms and layout are complete
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        centerNodeInViewport('trigger-node')
-      })
-    })
+    // Use setTimeout to ensure DOM is fully rendered
+    const timer = setTimeout(() => {
+      centerNodeInViewport('trigger-node')
+    }, 100)
+    return () => clearTimeout(timer)
   }, [centerNodeInViewport])
 
   // Function to add a node to the canvas
   const addNodeToCanvas = useCallback((nodeName: string, position?: { x: number; y: number }) => {
     const newNodeId = `node-${Date.now()}`
     
-    // If position is provided, use it; otherwise, position relative to existing nodes
+    // Determine node type based on name
+    const isTrigger = nodeName === 'Trigger' || 
+                     nodeName === 'User submission' || 
+                     nodeName === 'App Trigger' || 
+                     nodeName === 'Run on Click' || 
+                     nodeName === 'Scheduled trigger'
+    const nodeType: 'input' | 'trigger' | 'placeholder' = isTrigger ? 'trigger' : 'placeholder'
+    
+    // Position with vertical spacing from existing nodes
     let nodePosition: { x: number; y: number }
     if (position) {
       nodePosition = position
     } else {
-      // Find the rightmost node to position new node to its right
-      const placeholderNodes = nodes.filter(n => n.type === 'placeholder')
-      const triggerOrInputNode = nodes.find(n => n.type === 'input' || n.type === 'trigger')
-      
-      if (placeholderNodes.length > 0 || triggerOrInputNode) {
-        // Get the rightmost node position
-        let rightmostX = -Infinity
-        let rightmostY = 0
+      // Get the scroll container
+      const scrollContainer = scrollContainerRef.current
+      if (scrollContainer) {
+        // Get visible viewport dimensions
+        const viewportWidth = scrollContainer.clientWidth
+        const viewportHeight = scrollContainer.clientHeight
         
-        // Check placeholder nodes
-        placeholderNodes.forEach(node => {
-          if (node.position.x > rightmostX) {
-            rightmostX = node.position.x
-            rightmostY = node.position.y
-          }
-        })
+        // Calculate center of visible viewport in canvas coordinates
+        const centerX = (scrollContainer.scrollLeft + viewportWidth / 2) / zoom
+        const centerY = (scrollContainer.scrollTop + viewportHeight / 2) / zoom
         
-        // Check input/trigger node (it has its own position state, so we need to get it from DOM)
-        const triggerOrInputNode = nodes.find(n => n.type === 'input' || n.type === 'trigger')
-        if (triggerOrInputNode && nodeContainerRef.current) {
-          const triggerNodeElement = nodeContainerRef.current.querySelector(`[data-node-id="${triggerOrInputNode.id}"]`)
-          if (triggerNodeElement) {
-            const computedStyle = window.getComputedStyle(triggerNodeElement)
-            const transform = computedStyle.transform
-            if (transform && transform !== 'none') {
-              const matrix = new DOMMatrix(transform)
-              const inputX = matrix.e
-              const inputY = matrix.f
-              if (inputX > rightmostX) {
-                rightmostX = inputX
-                rightmostY = inputY
+        // Node dimensions (approximate)
+        const nodeHeight = 200
+        const verticalSpacing = 50 // Vertical gap between nodes
+        
+        // Find the bottom-most node position
+        let bottomMostY = -Infinity
+        let bottomMostX = centerX
+        
+        // Check all existing nodes
+        nodes.forEach(node => {
+          let nodeX = node.position.x
+          let nodeY = node.position.y
+          
+          // For trigger/input nodes, get their actual DOM position
+          if ((node.type === 'trigger' || node.type === 'input') && nodeContainerRef.current) {
+            const nodeElement = nodeContainerRef.current.querySelector(`[data-node-id="${node.id}"]`)
+            if (nodeElement) {
+              const computedStyle = window.getComputedStyle(nodeElement)
+              const transform = computedStyle.transform
+              if (transform && transform !== 'none') {
+                const matrix = new DOMMatrix(transform)
+                nodeX = matrix.e
+                nodeY = matrix.f
               }
             }
           }
-        }
+          
+          // Calculate bottom of this node
+          const nodeBottom = nodeY + nodeHeight
+          
+          // Check if this node is visible in viewport (rough check)
+          const nodeScreenX = (nodeX * zoom) - scrollContainer.scrollLeft
+          const nodeScreenY = (nodeY * zoom) - scrollContainer.scrollTop
+          
+          // If node is roughly in viewport and lower than current bottom-most
+          if (nodeScreenY >= -200 && nodeScreenY <= viewportHeight + 200 && 
+              nodeScreenX >= -200 && nodeScreenX <= viewportWidth + 200) {
+            if (nodeBottom > bottomMostY) {
+              bottomMostY = nodeBottom
+              bottomMostX = nodeX // Use same X as the bottom-most node for alignment
+            }
+          }
+        })
         
-        // Position new node to the right of the rightmost node
-        nodePosition = { 
-          x: rightmostX + 350, // Same offset as NodeSelector uses
-          y: rightmostY // Same Y coordinate for horizontal alignment
+        // Position new node
+        if (bottomMostY > -Infinity) {
+          // Position below the bottom-most node with vertical spacing
+          nodePosition = {
+            x: bottomMostX,
+            y: bottomMostY + verticalSpacing
+          }
+        } else {
+          // No existing nodes in viewport, center in viewport
+          nodePosition = {
+            x: centerX - 160, // Half node width
+            y: centerY - 100   // Half node height
+          }
         }
       } else {
-        // No existing nodes, center in viewport
-        const scrollContainer = scrollContainerRef.current
-        if (scrollContainer) {
-          const containerRect = scrollContainer.getBoundingClientRect()
-          const centerX = (scrollContainer.scrollLeft + containerRect.width / 2) / zoom
-          const centerY = (scrollContainer.scrollTop + containerRect.height / 2) / zoom
-          nodePosition = { x: centerX - 160, y: centerY - 100 } // Offset by half node size
-        } else {
-          nodePosition = { x: 300, y: 200 }
-        }
+        // Fallback: use a safe default position
+        nodePosition = { x: 500, y: 400 }
       }
     }
     
@@ -288,26 +325,24 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
       id: newNodeId,
       name: nodeName,
       position: nodePosition,
-      type: 'placeholder'
+      type: nodeType
     }
     
     setNodes(prev => [...prev, newNode])
     
-    // Update handle positions after adding new node
+    // After node is added and rendered, center it in viewport
     requestAnimationFrame(() => {
       updateHandlePositions()
-      // Center the newly added node in the viewport only if no position was provided
-      requestAnimationFrame(() => {
-        if (!position) {
-          centerNodeInViewport(newNodeId)
-        }
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        centerNodeInViewport(newNodeId)
         // Automatically open configuration panel for the newly added node
         setSelectedNodeId(newNodeId)
-      })
+      }, 50)
     })
     
     return newNodeId
-  }, [zoom, updateHandlePositions, centerNodeInViewport, nodes])
+  }, [zoom, updateHandlePositions, centerNodeInViewport])
 
   // Expose addNode function via ref
   useImperativeHandle(ref, () => ({
@@ -608,7 +643,7 @@ const Canvas = forwardRef<CanvasHandle>((props, ref) => {
               } else if (node.type === 'trigger') {
                 return (
                   <TriggerNode
-                    key={node.id}
+                    key={`${node.id}-${node.name}`}
                     id={node.id}
                     name={node.name}
                     onHandleDragStart={(position) => {
