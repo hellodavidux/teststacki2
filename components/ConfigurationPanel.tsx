@@ -34,6 +34,14 @@ interface SubactionItem {
 
 type TriggerMenuView = 'main' | 'user-submission' | 'app-trigger'
 
+interface Setting {
+  label: string
+  type: 'text' | 'number' | 'checkbox' | 'select' | 'time'
+  value: string | number | boolean
+  placeholder?: string
+  options?: string[]
+}
+
 // App importance order - most important first
 const APP_IMPORTANCE_ORDER = [
   'Gmail',
@@ -106,7 +114,7 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
       setShowTriggerDropdown(false)
       setShowUserSubmissionDropdown(false)
     }
-  }, [nodeId])
+  }, [nodeId, nodeName])
 
   // Auto-set trigger view when node name changes
   useEffect(() => {
@@ -394,7 +402,7 @@ export default function ConfigurationPanel({ nodeName, nodeId, onClose, onUpdate
   }
 
   // Get mock settings fields based on trigger type
-  const getMockSettings = () => {
+  const getMockSettings = (): Setting[] => {
     if (nodeName === 'Text Input' || nodeName === 'Input') {
       return [
         { label: 'Label', type: 'text', value: 'Enter your message', placeholder: 'Field label' },
